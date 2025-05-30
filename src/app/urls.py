@@ -1,5 +1,5 @@
 """
-    AMASFAC URL CONFIGURATION
+    great plains URL CONFIGURATION
 """
 import json
 from django.conf import settings
