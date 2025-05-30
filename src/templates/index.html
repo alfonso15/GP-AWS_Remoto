@@ -1,0 +1,385 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Great Plains</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css"
+      rel="stylesheet" integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx"
+          crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css"
+          integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
+    <script src="//cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2/dist/vue.js"></script>
+    <script src="https://unpkg.com/vue-select@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/vue-select@latest/dist/vue-select.css">
+</head>
+<body>
+    <div class="container" id="content">
+        <nav class="navbar navbar-light bg-light">
+          <div class="container-fluid">
+            <a class="navbar-brand">
+                {% if user.company.logo %}
+              <img src="{{ user.company.logo.url }}" style="max-height: 80px;"
+                   class="d-inline-block align-text-top">
+                {% else %}
+              <img src="{% static 'logo.png' %}" style="max-height: 80px;" class="d-inline-block align-text-top">
+                {% endif %}
+            </a>
+
+            <v-select :options="{{ companies }}" v-model="company" @input="refresh_new_company"
+                :reduce="item => item.id" label="name"></v-select>
+
+            <p>Usuario: {{ user.email }}</p>
+
+            <a href="{% url 'logout' %}">Cerrar Sesión</a>
+          </div>
+        </nav>
+
+        <!-- Form Modal Button-->
+        <div class="row mt-5">
+            <div class="col-3">
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#formModal">
+                    Generar Nuevo Reporte
+                </button>
+            </div>
+            <div class="col-3">
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#filterModal">
+                    Filtrar resultados
+                </button>
+            </div>
+            <div class="col-3">
+                <button type="button" class="btn btn-primary" @click="reset_params()">
+                    Borrar todos los filtros
+                </button>
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="row mt-5">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th scope="col"># Orden Servicio</th>
+                        <th scope="col">Serie</th>
+                        <th scope="col">Falla</th>
+                        <th scope="col">Estatus</th>
+                        <th scope="col">Fecha del Reporte</th>
+                        <th scope="col">Fecha Programada de Atención</th>
+                        <th scope="col">Fecha de Cierre</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="item in item_list">
+                        <th scope="row"><a @click="detail(item)" href="#">{v item.report_id v}</a></th>
+                        <td><a @click="set_serial_filter(item.serial_number)" href="#">{v item.serial_number v}</a></td>
+                        <td>{v item.failure_description v}</td>
+                        <td>{v item.status v}</td>
+                        <td>{v item.report_date? formatDate(item.report_date) : '' v}</td>
+                        <td>{v item.attention_date? formatDate(item.attention_date): '' v}</td>
+                        <td>{v item.end_date? formatDate(item.end_date) : '' v}</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="col-12 d-flex justify-content-center">
+                <nav aria-label="Page navigation example">
+                    <ul class="pagination">
+                        <li class="page-item">
+                            <a class="page-link" href="#" @click="params.page = 1">
+                                <span aria-hidden="true">&laquo;</span>
+                            </a>
+                        </li>
+                        <li class="page-item" v-for="i in pages_count">
+                            <a class="page-link" href="#" v-if="params.page - pages_count - 1 + i >= 1"
+                               @click="set_page(params.page - pages_count - 1 + i)">
+                                {v params.page - pages_count - 1  + i v}
+                            </a>
+                        </li>
+                        <li class="page-item active"><a class="page-link" href="#">{v params.page v}</a></li>
+                        <li class="page-item" v-for="i in pages_count" >
+                            <a class="page-link" href="#" v-if="params.page + i <= max_pages"
+                               @click="set_page(params.page + i)">
+                                {v params.page + i v}
+                            </a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" href="#" @click="params.page = max_pages">
+                                <span aria-hidden="true">&raquo;</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </div>
+        </div>
+
+        <!-- Filter Modal -->
+        <div class="modal fade" id="filterModal" tabindex="-1" aria-labelledby="filterModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="filterModalLabel">Filtros</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Seleccione un equipo</label>
+                            <v-select :options="serials_list" v-model="params.serial_number"
+                                  :reduce="item => item.name" label="name"></v-select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Seleccione una falla o solicitud</label>
+                            <v-select :options="failures_list" v-model="params.failure_id"
+                                  :reduce="item => item.id" label="name"></v-select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Form Modal -->
+        <div class="modal fade" id="formModal" tabindex="-1" aria-labelledby="formModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="formModalLabel">Reporte de Equipo</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Seleccione un equipo</label>
+                            <v-select :options="serials_list" v-model="item_data.serial_number_data"
+                                   label="name"></v-select>
+                            <small class="form-text text-danger" v-if="'serial_number' in errors">
+                                {v errors.serial_number.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Seleccione una falla o solicitud</label>
+                            <v-select :options="failures_list" v-model="item_data.failure_data"
+                                  label="name"></v-select>
+                            <small class="form-text text-danger" v-if="'failure_id' in errors">
+                                {v errors.failure_id.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Descripción del problema</label>
+                            <input type="text" class="form-control" id="description" v-model="item_data.description">
+                            <small class="form-text text-danger" v-if="'description' in errors">
+                                {v errors.description.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="name" v-model="item_data.name">
+                            <small class="form-text text-danger" v-if="'name' in errors">
+                                {v errors.name.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="last_name" class="form-label">Apellido</label>
+                            <input type="text" class="form-control" id="last_name" v-model="item_data.last_name">
+                            <small class="form-text text-danger" v-if="'last_name' in errors">
+                                {v errors.last_name.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="text" class="form-control" id="email" v-model="item_data.email">
+                            <small class="form-text text-danger" v-if="'email' in errors">
+                                {v errors.email.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Teléfono</label>
+                            <input type="text" class="form-control" id="phone" v-model="item_data.phone">
+                            <small class="form-text text-danger" v-if="'phone' in errors">
+                                {v errors.phone.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="floor" class="form-label">Piso</label>
+                            <input type="text" class="form-control" id="floor" v-model="item_data.floor">
+                            <small class="form-text text-danger" v-if="'floor' in errors">
+                                {v errors.floor.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="area" class="form-label">Área</label>
+                            <input type="text" class="form-control" id="area" v-model="item_data.area">
+                            <small class="form-text text-danger" v-if="'area' in errors">
+                                {v errors.area.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="counter" class="form-label">Contador</label>
+                            <input type="text" class="form-control" id="counter" v-model="item_data.counter">
+                            <small class="form-text text-danger" v-if="'counter' in errors">
+                                {v errors.counter.toString() v}</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="comments" class="form-label">Comentarios</label>
+                            <textarea class="form-control" id="comments" v-model="item_data.comments"></textarea>
+                            <small class="form-text text-danger" v-if="'comments' in errors">
+                                {v errors.comments.toString() v}</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-primary" @click="create_item()">Generar Reporte</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail Modal -->
+        <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="detailModalLabel">Orden de Servicio #{v detail_item.report_id v}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p>Serie: <span class="float-end">{v detail_item.serial_number v}</span></p>
+                        <p>Falla: <span class="float-end">{v detail_item.failure_description v}</span></p>
+                        <p>Descripción: <span class="float-end">{v detail_item.description v}</span></p>
+                        <p>Nombre de quien firma: <span class="float-end">{v detail_item.name v}</span></p>
+                        <p>Email para notifiación: <span class="float-end">{v detail_item.email v}</span></p>
+                        <p>Estatus: <span class="float-end">{v detail_item.status v}</span></p>
+                        <p>Fecha reporte: <span class="float-end">{v detail_item.report_date v}</span></p>
+                        <p>Fecha Programada de Atención: <span class="float-end">{v detail_item.attention_date v}</span></p>
+                        <p>Fecha de Cierre: <span class="float-end">{v detail_item.end_date v}</span></p>
+                        <p v-if="detail_item.file"><a :href="detail_item.file">Archivo</a></p>
+                        <p v-for="file in detail_item.ticketfile_set">
+                            <a :href="file.file">{v file.name v}</a>
+                        </p>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        axios.defaults.headers.common['X-CSRFToken'] = '{{csrf_token}}'
+    </script>
+    <script>
+        Vue.component('v-select', VueSelect.VueSelect);
+
+        const tickets = new Vue({
+            el: "#content",
+            delimiters: ['{v', 'v}'],
+            data: {
+                company: "{{ user.company.random_slug }}",
+                base_url: "/api/v1/tickets/",
+                item_list: [],
+                item_data: {},
+                serials_list: [],
+                failures_list: [],
+                detail_item: {},
+                errors: {},
+                params: {serial_number: null, failure_id: null, page: 1},
+                pages_count: 3,
+                max_pages: 3,
+            },
+            watch: {
+                params: {
+                    handler() {
+                        this.get_item_list();
+                    },
+                    deep: true,
+                    immediate: true
+                },
+            },
+            methods: {
+                reset_params(){
+                    this.params.serial_number = null
+                    this.params.failure_id = null
+                },
+                set_page(number){
+                    this.params.page = number
+                },
+                get_item_list(){
+                    var self = this;
+                    axios.get(this.base_url, {params: this.params})
+                    .then(response => {
+                        self.item_list = response.data.results,
+                        self.max_pages = response.data.pages_count
+                    })
+                },
+                get_failures(){
+                    var self = this;
+                    axios.get(this.base_url + 'failures/')
+                    .then(response => {
+                        self.failures_list = response.data
+                    })
+                },
+                get_serials(){
+                    var self = this;
+                    axios.get(this.base_url + 'serials/')
+                    .then(response => {
+                        self.serials_list = response.data
+                    })
+                },
+                set_serial_filter(serial){
+                    this.params.serial_number = serial
+                    {#this.get_item_list()#}
+                },
+                create_item(){
+                    this.errors = {};
+                    var self = this;
+                    axios.post(this.base_url, this.item_data
+                    ).then(response => {
+                        bootstrap.Modal.getInstance(document.getElementById('formModal')).hide()
+                        self.item_list.unshift(response.data);
+                        self.item_data = {};
+                        Swal.fire({
+                            icon: "success",
+                            title: "Su reporte ha sido generado de manera exitosa.",
+                            html: `
+                                <p>Estimado Cliente, el número de reporte generado es ${response.data.report_id} para cualquier seguimiento. </p>
+                                   <p>Su reporte será atendido a la brevedad.</p>
+                            `
+                        })
+                    }).catch(error => {
+                        self.errors = error.response.data
+                        if('non_field_errors' in self.errors){
+                            Swal.fire({
+                                icon: "error",
+                                title: self.errors.non_field_errors[0],
+                            })
+                        }
+                    })
+                },
+                detail(item){
+                    this.detail_item = item;
+                    var modal = new bootstrap.Modal(document.getElementById('detailModal'))
+                    modal.show()
+                },
+                formatDate(datestr){
+                    const date = new Date(datestr)
+                    return date.toLocaleString('es',
+                        {year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: 'numeric'})
+                },
+                refresh_new_company(){
+                    var self = this;
+                    axios.patch("/api/v1/users/company/", {company: this.company, test: 1})
+                    .then(response => {
+                        self.get_item_list();
+                        self.get_serials();
+                    })
+                }
+            },
+            mounted(){
+                this.get_item_list();
+                this.get_failures();
+                this.get_serials();
+            }
+        })
+    </script>
+</body>
+</html>

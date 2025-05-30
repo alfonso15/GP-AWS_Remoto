@@ -1,0 +1,7 @@
+# Sentry
+sentry-sdk==1.7.2
+
+# Others
+gunicorn
+setproctitle
+psycopg2
