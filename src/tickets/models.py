@@ -52,6 +52,9 @@ class Ticket(models.Model):
     
     comments = models.TextField(null=True, blank=True)
     
+    techid = models.CharField(max_length=11, null=True)
+    customer_reference = models.CharField(max_length=20, null=True)
+
     # Provided Data
     attention_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)

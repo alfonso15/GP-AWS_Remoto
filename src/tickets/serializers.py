@@ -29,8 +29,9 @@ class TicketSerializer(serializers.ModelSerializer):
         model = Ticket
         read_only_fields = ['report_id', 'report_date', 'attention_date', 'failure_description', 'serial_number',
                             'end_date', 'status', 'file', "ticketfile_set"]
-        fields = ['serial_number_data', 'failure_data', 'description', 'name', 'last_name', 'email',
-                  'phone', 'floor', 'area', 'counter', "comments"] + read_only_fields
+        fields = ['serial_number_data', 'failure_data', 'description', 'name', 
+                  'last_name', 'email', 'phone', 'floor', 'area', 'counter', 
+                  'techid', 'customer_reference', "comments"] + read_only_fields
 
     def get_file(self, instance):
         if instance.file:

@@ -61,9 +61,11 @@
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th scope="col">Orden Servicio</th>
+                        <th scope="col"># Orden Servicio</th>
                         <th scope="col">Serie</th>
                         <th scope="col">Falla</th>
+                        <th scope="col">Técnico</th>
+                        <th scope="col">Folio</th>
                         <th scope="col">Estatus</th>
                         <th scope="col">Fecha del Reporte</th>
                         <th scope="col">Fecha Programada</th> <!--  de Atención -->
@@ -75,6 +77,8 @@
                         <th scope="row"><a @click="detail(item)" href="#">{v item.report_id v}</a></th>
                         <td><a @click="set_serial_filter(item.serial_number)" href="#">{v item.serial_number v}</a></td>
                         <td>{v item.failure_description v}</td>
+                        <td>{v item.techid v}</td>
+                        <td>{v item.customer_reference v}</td>
                         <td>{v item.status v}</td>
                         <td>{v item.report_date? formatDate(item.report_date) : '' v}</td>
                         <td>{v item.attention_date? formatDate(item.attention_date): '' v}</td>
